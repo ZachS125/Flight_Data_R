@@ -41,7 +41,7 @@ Below, please provide the code your group employed to construct and refine the d
 
 plot 1 data manipulation
 ```{r}
-atl_march <- read_csv("atl_march_2020.csv")
+atl_march <- read_csv("data/atl_march_2020.csv")
 head(atl_march)
 
 # Compute cancellation rates using dep_time as cancellation proxy
