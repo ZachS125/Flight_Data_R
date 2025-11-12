@@ -1,0 +1,125 @@
+---
+title: "QTM 150: Final Project"
+output: html_document
+author: "Provide your group number and group members' name" 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("anyflights") #required package for the project
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(maps)
+library(plotly)
+
+```
+
+## 1. Research Question
+Provide a research question related to U.S. domestic air travel. Break down the broad question into three smaller research questions.
+
+Which airlines experienced the greatest changes in cancellation rates over the year, and when did these shifts occur?
+
+## 2. Rationale for the Research Question
+Why was this particular research question chosen? What led to the decision to explore this topic? 
+
+Our group chose to investigate cancellation rates because airline disruptions significantly increased during the COVID-19 pandemic, especially at major domestic hubs like ATL (Atlanta Hartsfield-Jackson). Understanding when and which airlines experienced the highest cancellation spikes offers insight into how different carriers responded to operational challenges. By examining daily trends in March, we aim to identify not only overall patterns but also specific moments of disruption across airlines, helping us evaluate which carriers were most affected and when those changes occurred.
+
+
+## 3. Data Selection
+Detail the dataset(s) your group utilized to address the research question. -What were the reasons for selecting this particular dataset? 
+Which specific variables will the group be focusing on? 
+
+airline
+
+year, month – to analyze trends over time
+
+Create "cancelled" - gives cancelled flights over time.
+
+
+Below, please provide the code your group employed to construct and refine the dataset to suit your research needs. Make sure you export the finalized dataset into a .csv format for uploading to Canvas.
+
+plot 1 data manipulation
+```{r}
+atl_march <- read_csv("atl_march_2020.csv")
+head(atl_march)
+
+# Compute cancellation rates using dep_time as cancellation proxy
+cancelledflights <- atl_march %>%
+  filter(!is.na(carrier)) %>%
+  mutate(cancelled_a = ifelse(is.na(dep_time), 1, 0)) %>%
+  group_by(carrier) %>%
+  summarize(total_flights = n(), cancellations = sum(cancelled_a), cancel_rate = round(100 * cancellations / total_flights, 2)) %>%
+  arrange(desc(cancel_rate))
+
+cancelledflights
+
+```
+
+plot 2 data manipulation
+```{r}
+airports <- get_airports()
+
+mapcancelled <- atl_march %>%
+  filter(is.na(dep_time)) %>%
+  group_by(dest) %>%
+  summarise(cancelled = n()) %>%
+  left_join(airports, by = c("dest" = "faa")) %>% #grouping by dest (cancellations) and adding airport info.
+  filter(!is.na(lat), !is.na(lon)) 
+
+```
+
+plot 3 data manipulation
+```{r}
+# Daily cancellation counts
+cancelledDay <- atl_march %>%
+  mutate(cancelled_flag = ifelse(is.na(dep_time), 1, 0)) %>%
+  group_by(day) %>%
+  summarise(cancelled_flights = sum(cancelled_flag), .groups = "drop")
+
+```
+## 4. Analytical Approach and Visual Findings
+Apply skills you learned from the classes to import, tidy, transform, wrangle, and visualize the data.
+
+Your group should present *a minimum of three distinct analyses or visualizations* to adequately address the research question. Detail the codes used, and provide a clear interpretation of each visualization.
+
+plot 1
+```{r}
+# Bar chart: Cancellation Rate by Carrier
+p1 <- ggplot(cancelledflights, aes(x = carrier, y = cancel_rate, fill = carrier)) +
+  geom_col() +
+  geom_text(aes(label = cancel_rate), vjust = -0.5, size = 3) +
+  labs(title = "Cancellation Rate by Airline", x = "Airline",y = "Cancellation Rate (%)") +
+  theme_minimal()
+
+ggplotly(p1)
+
+```
+
+plot 2
+```{r}
+states <- map_data("state")
+p2 <- ggplot() +
+  geom_polygon(data = states, aes(x = long, y = lat, group = group), fill = "white", color = "gray") + 
+  geom_point(data = mapcancelled, aes(x = lon, y = lat, size = cancelled), color = "red", alpha = 0.6) +
+  scale_size_continuous(range = c(0.1, 8)) +
+  labs(title = "Cancelled ATL Flights by Destination") + coord_fixed(1.3) +
+  theme_void()
+
+ggplotly(p2)
+
+```
+
+plot 3
+```{r}
+# Line graph version of daily cancellations
+plot_ly(data = cancelledDay, x = ~day, y = ~cancelled_flights, type = "scatter", mode = "lines+markers", line = list(color = "darkblue")) %>%
+  layout(title = "Cancelled FLights From ATL", xaxis = list(title = "Day"), yaxis = list(title = "Number of Cancelled Flights"))
+
+```
+
+## 5. Implications and Conclusions
+Did the findings align with your initial expectations? What key insights have been gleaned from this research? What broader implications do these findings have for the airline industry, travelers, or policymakers?
+
+Yes, our findings aligned with our initial expectations. We knew that a bunch of flights got cancelled once the whole country shut down on around March 15, 2020. Our line graph (“Daily Cancelled Flights From ATL”) showed that cancellations jumped from steadily around zero cancellations per day to upwards of over 600 cancellations, and growing at the end of the month. Our map plot showed where the flights that were cancelled were intended to go to. This made sense because COVID was very bad in major cities, and also, more flights were going to major cities - as we can see here the East appeared worse off for cancelled flights which was a bit of a surprise because I believed the West Coast got hit harder at first. This may be because there are more major airports on the East Coast. Our bar graph() was surprising because I didn't know United Airlines got the most percent of their flights cancelled. This may be because they had more flights scheduled for later in the month when COVID hit the United States, or it may be that they shut down processes earlier than others. This would be very interesting to do further research on. The bigger airlines got most shut down.
+
